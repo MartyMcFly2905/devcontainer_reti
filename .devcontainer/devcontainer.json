@@ -1,0 +1,23 @@
+{
+    "name": "devcontainer_reti",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+    "workspaceFolder": "/workspace",
+
+    "postCreateCommand": "chmod +x ./setup_reti.sh && ./setup_reti.sh",
+
+    "features": {},
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "tomoki1207.pdf",
+                "ms-vscode.cpptools-extension-pack",
+                "basdp.language-gas-x86",
+                "mshr-h.veriloghdl"
+            ]
+        }
+    },
+    "remoteUser": "vscode"
+}
