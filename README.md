@@ -33,7 +33,7 @@ L'ambiente per Reti Logiche viene configurato **automaticamente** la prima volta
 
 Lo script `setup_reti.sh` esegue i seguenti passaggi:
 
-1.  Scarica l'archivio ufficiale fornito dal docente.
+1.  Scarica l'archivio ufficiale(linux) fornito dal docente.
 2.  Estrae i file necessari in `/workspace/reti_logiche/`.
 3.  Crea i file `assemble.sh` e `debug.sh`.
 
