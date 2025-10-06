@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y \
     gcc-multilib g++-multilib gdb gdb-multiarch nasm iverilog gtkwave qemu-user \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+RUN chmod +x /workspace/setup_reti.sh
+
 # Torna all’utente vscode
 USER vscode
 

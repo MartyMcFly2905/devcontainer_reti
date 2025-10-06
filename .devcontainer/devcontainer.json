@@ -6,8 +6,6 @@
     "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
     "workspaceFolder": "/workspace",
 
-    "postCreateCommand": "chmod +x ./setup_reti.sh && ./setup_reti.sh",
-
     "features": {},
     "customizations": {
         "vscode": {
@@ -19,5 +17,7 @@
             ]
         }
     },
-    "remoteUser": "vscode"
+    "remoteUser": "vscode",
+
+    "postCreateCommand": "./setup_reti.sh"
 }
