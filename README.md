@@ -39,7 +39,7 @@ Lo script `setup_reti.sh` esegue i seguenti passaggi:
 
 Al termine della build, troverai la cartella `reti_logiche/linux` pronta nel tuo workspace.
 
-### Compilatore
+### Assemble.sh
 
 Per testare, deve restituire `Tutto OK`:
 
@@ -51,7 +51,7 @@ Per testare, deve restituire `Tutto OK`:
 ./demo/demo1
 ```
 
-### Debugger
+### Debug.sh
 
 Il DevContainer include un **debugger adattivo** compatibile con host **x86** e **Apple Silicon (ARM)**.  
 Lo script `debug.sh` riconosce automaticamente l’architettura e utilizza **GDB** o **QEMU + GDB Multiarch** per il debug a 32 bit.
