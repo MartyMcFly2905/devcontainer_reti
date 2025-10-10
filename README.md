@@ -77,8 +77,8 @@ Su sistemi **Apple Silicon / ARM**, sono disponibili tre modalità operative:
 
 ##### 1️⃣ Debug GDB puro (singolo terminale)
 
-- **Per:** analisi di algoritmi, registri, memoria  
-- **I/O:** ❌ *Non supportato* — funzioni come `inline` non ricevono input  
+- **Per:** analisi di algoritmi, registri etc. 
+- **I/O:** ❌ *Non supportato* — funzioni come `inline` non riceveranno input dal terminale dell'utente  
 - **Uso ideale:** quando non è necessaria la verifica di interazioni con l’utente
 
 ##### 2️⃣ Debug a due terminali (interattivo)
