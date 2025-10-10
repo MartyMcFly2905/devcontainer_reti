@@ -37,7 +37,7 @@ fi
 sourceFile=$1
 name=$(basename "$sourceFile" .s)
 
-gcc -m32 -o "${sourceFile%.s}" -Wa,-a -Wa,--defsym,LINUX=1 -g ./files/main.c "$sourceFile" ./files/utility.s
+gcc -m32 -o "${sourceFile%.s}" -Wa,-a="${name}.lst" -Wa,--defsym,LINUX=1 -g ./files/main.c "$sourceFile" ./files/utility.s
 
 if [ $? -eq 0 ]; then
     echo "Compiled successfully: ${sourceFile%.s}"
@@ -49,69 +49,214 @@ EOF
 
 # Crea debug.sh
 echo ">>> Creazione debug.sh..."
-cat > debug.sh << 'EOF'
+cat > debug.sh << 'EOF_SCRIPT'
 #!/bin/bash
 # Debug script adattivo per Reti Logiche
-# - x86: usa gdb diretto
-# - ARM: usa qemu-i386 + gdb-multiarch
-# Sempre carica gdb_startup se presente (breakpoint su _main)
+# - Configurazione architettura persistente
+# - Tre modalità di debug per ARM
 
-[ $# -eq 0 ] && echo "Usage: $0 <executable>" && exit 1
+[ $# -eq 0 ] && echo "Usage: $0 <executable> [input_file]" && exit 1
+
 exe=$1
+input_file=$2
 
 if [ ! -f "$exe" ]; then
     echo "Error: file '$exe' not found"
     exit 1
 fi
 
-# Richiedi all'utente di selezionare l'architettura
-echo "Seleziona l'architettura:"
-echo "1) x86 (gdb diretto)"
-echo "2) altro (qemu-i386 + gdb-multiarch)"
-read -p "Scelta [1/2]: " scelta
+# File di configurazione persistente
+CONFIG_DIR="$HOME/.config/reti_logiche"
+CONFIG_FILE="$CONFIG_DIR/arch_config"
 
-case $scelta in
-    1)
-        echo ">>> Modalità x86 selezionata → avvio gdb diretto"
-        if [ -f "./files/gdb_startup" ]; then
-            gdb -x "./files/gdb_startup" "$exe"
+# Se non esiste, chiedi all'utente di configurare
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "=== Configurazione Architettura ==="
+    echo "Seleziona l'architettura del tuo sistema host:"
+    echo "1) x86_64 (Intel/AMD)"
+    echo "2) ARM/Apple Silicon"
+    echo "3) Altra architettura"
+    read -p "Scelta [1/2/3]: " arch_choice
+    
+    mkdir -p "$CONFIG_DIR"
+    case $arch_choice in
+        1) echo "x86_64" > "$CONFIG_FILE" ;;
+        2) echo "arm" > "$CONFIG_FILE" ;;
+        3) echo "other" > "$CONFIG_FILE" ;;
+        *) echo "x86_64" > "$CONFIG_FILE" ;;
+    esac
+    echo "Configurazione salvata in $CONFIG_FILE"
+    echo ""
+fi
+
+# Leggi configurazione
+ARCH_TYPE=$(cat "$CONFIG_FILE")
+
+# Su x86_64, usa GDB diretto
+if [ "$ARCH_TYPE" = "x86_64" ]; then
+    echo ">>> Architettura x86_64 - GDB nativo"
+    if [ -f "./files/gdb_startup" ]; then
+        if [ -n "$input_file" ] && [ -f "$input_file" ]; then
+            gdb -x "./files/gdb_startup" "$exe" < "$input_file"
         else
-            gdb "$exe"
+            gdb -x "./files/gdb_startup" "$exe"
         fi
-        ;;
-    2)
-        echo ">>> Modalità altro selezionata → uso QEMU gdbserver + gdb-multiarch"
+    else
+        gdb "$exe"
+    fi
+    exit 0
+fi
 
-        if ! command -v qemu-i386 &>/dev/null; then
-            echo "Errore: qemu-i386 non trovato. Installa con:"
-            echo "  sudo apt-get update && sudo apt-get install -y qemu-user"
-            exit 1
-        fi
-        if ! command -v gdb-multiarch &>/dev/null; then
-            echo "Errore: gdb-multiarch non trovato. Installa con:"
-            echo "  sudo apt-get update && sudo apt-get install -y gdb-multiarch"
-            exit 1
-        fi
+# Per ARM/altre architetture
+echo "=== Architettura $ARCH_TYPE - Debug con QEMU ==="
+echo ""
+echo "Seleziona modalità debug:"
+echo "1) Debug singolo terminale (GDB puro, senza I/O)"
+echo "2) Debug due terminali (I/O su terminale QEMU)"
+echo "3) Debug con input da file (pipe injection)"
+read -p "Scelta [1/2/3]: " debug_choice
 
-        # Avvia QEMU in gdbserver
+case $debug_choice in
+    1)
+        # Debug singolo terminale - solo GDB
+        echo ">>> Modalità 1: Debug GDB puro (senza I/O)"
+        echo "NOTA: Le funzioni I/O non riceveranno input"
+        echo ""
+        
         qemu-i386 -g 1234 "$exe" &
         QEMU_PID=$!
-        sleep 1
+        sleep 0.5
 
-        if [ -f "./files/gdb_startup" ]; then
-            gdb-multiarch -ex "set architecture i386" -ex "target remote :1234" -x "./files/gdb_startup" "$exe"
-        else
-            gdb-multiarch -ex "set architecture i386" -ex "target remote :1234" "$exe"
-        fi
+        # Crea script GDB temporaneo
+        GDB_SCRIPT=$(mktemp)
+        cat > "$GDB_SCRIPT" << 'EOF'
+set architecture i386
+target remote :1234
 
+# Funzioni helper per simulare input
+define simchar
+    if $argc == 1
+        set $al = $arg0
+        printf "Carattere simulato: 0x%02x\n", $arg0
+    else
+        echo "Usage: simchar <valore_esadecimale>\n"
+        echo "Esempio: simchar 0x41 (per 'A')\n"
+    end
+end
+
+define simstr
+    if $argc == 1
+        set $ptr = $arg0
+        while (*(char*)$ptr != 0)
+            set $al = *(char*)$ptr
+            printf "Simulato: '%c' (0x%02x)\n", $al, $al
+            set $ptr = $ptr + 1
+        end
+    else
+        echo "Usage: simstr <indirizzo_stringa>\n"
+    end
+end
+
+break _main
+continue
+EOF
+
+        gdb-multiarch -x "$GDB_SCRIPT" "$exe"
+        
+        # Cleanup
         kill $QEMU_PID 2>/dev/null
+        rm -f "$GDB_SCRIPT"
         ;;
+        
+    2)
+        # Debug due terminali
+        echo ">>> Modalità 2: Debug con due terminali"
+        echo ""
+        echo "ISTRUZIONI:"
+        echo "1. APRITE UN SECONDO TERMINALE"
+        echo "2. Nel secondo terminale, eseguite:"
+        echo "   qemu-i386 -g 1234 $exe"
+        echo ""
+        echo "3. In QUESTO terminale vedrete GDB"
+        echo "4. Nel SECONDO terminale vedrete l'I/O"
+        echo "   - Inserite gli input lì"
+        echo "   - Vedrete gli output lì"
+        echo ""
+        echo "Premi Invio quando hai aperto il secondo terminale..."
+        read
+        
+        # Script GDB per connessione
+        GDB_SCRIPT=$(mktemp)
+        cat > "$GDB_SCRIPT" << 'EOF'
+set architecture i386
+target remote :1234
+break _main
+continue
+EOF
+
+        echo ">>> Connessione a QEMU in corso..."
+        gdb-multiarch -x "$GDB_SCRIPT" "$exe"
+        rm -f "$GDB_SCRIPT"
+        ;;
+        
+    3)
+        # Debug con input da file
+        if [ -z "$input_file" ]; then
+            echo "ERRORE: Specifica un file di input come secondo parametro"
+            echo "Esempio: $0 $exe input.txt"
+            exit 1
+        fi
+        
+        if [ ! -f "$input_file" ]; then
+            echo "ERRORE: File di input non trovato: $input_file"
+            exit 1
+        fi
+        
+        echo ">>> Modalità 3: Debug con input da file"
+        echo "File: $input_file"
+        echo "Contenuto:"
+        cat -n "$input_file" | sed 's/^/   /'
+        echo ""
+        
+        # Crea FIFO
+        FIFO=$(mktemp -u)
+        mkfifo "$FIFO"
+        echo ">>> FIFO creata: $FIFO"
+        
+        # Inietta l'input nella FIFO
+        echo ">>> Iniezione input in corso..."
+        cat "$input_file" > "$FIFO" &
+        CAT_PID=$!
+        
+        # Avvia QEMU che legge dalla FIFO
+        qemu-i386 -g 1234 "$exe" < "$FIFO" &
+        QEMU_PID=$!
+        sleep 0.5
+
+        # Script GDB
+        GDB_SCRIPT=$(mktemp)
+        cat > "$GDB_SCRIPT" << 'EOF'
+set architecture i386
+target remote :1234
+break _main
+continue
+EOF
+
+        echo ">>> Avvio GDB..."
+        gdb-multiarch -x "$GDB_SCRIPT" "$exe"
+        
+        # Cleanup
+        kill $QEMU_PID $CAT_PID 2>/dev/null
+        rm -f "$GDB_SCRIPT" "$FIFO"
+        echo ">>> Pulizia completata"
+        ;;
+        
     *)
-        echo "Errore: scelta non valida. Usa 1 per x86 o 2 per altro."
+        echo "Scelta non valida"
         exit 1
         ;;
 esac
-EOF
+EOF_SCRIPT
 
 # Rendi eseguibili gli script
 chmod +x assemble.sh debug.sh

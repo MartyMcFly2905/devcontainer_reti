@@ -13,7 +13,6 @@
         "vscode": {
             "extensions": [
                 "tomoki1207.pdf",
-                "ms-vscode.cpptools-extension-pack",
                 "basdp.language-gas-x86",
                 "mshr-h.veriloghdl"
             ]
