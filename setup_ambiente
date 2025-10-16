@@ -1,45 +1,44 @@
 #!/bin/bash
-# Script di setup per ambiente Reti Logiche nel DevContainer
 
-set -e
+main() {
+    COURSE_DIR="/workspace/reti_logiche"
+    ZIP_URL="https://docenti.ing.unipi.it/~a080368/Teaching/RetiLogiche/pdf/Ambienti/linux.zip"
+    ZIP_FILE="linux.zip"
 
-COURSE_DIR="/workspace/reti_logiche"
-ZIP_URL="https://docenti.ing.unipi.it/~a080368/Teaching/RetiLogiche/pdf/Ambienti/linux.zip"
-ZIP_FILE="linux.zip"
+    echo ">>> Creazione cartella $COURSE_DIR..."
+    mkdir -p "$COURSE_DIR"
 
-echo ">>> Creazione cartella $COURSE_DIR..."
-mkdir -p "$COURSE_DIR"
+    # Scarica lo zip ufficiale se non già presente
+    if [ ! -f "$ZIP_FILE" ]; then
+        echo ">>> Scarico l'ambiente ufficiale da $ZIP_URL..."
+        wget -O "$ZIP_FILE" "$ZIP_URL"
+    else
+        echo ">>> Trovato $ZIP_FILE in locale."
+    fi
+    echo ">>> Estraggo $ZIP_FILE in $COURSE_DIR..."
+    unzip -o "$ZIP_FILE" -x "*/*.ps1" -d "$COURSE_DIR"
 
-# Scarica lo zip ufficiale se non già presente
-if [ ! -f "$ZIP_FILE" ]; then
-    echo ">>> Scarico l'ambiente ufficiale da $ZIP_URL..."
-    wget -O "$ZIP_FILE" "$ZIP_URL"
-else
-    echo ">>> Trovato $ZIP_FILE in locale."
-fi
-echo ">>> Estraggo $ZIP_FILE in $COURSE_DIR..."
-unzip -o "$ZIP_FILE" -x "*/*.ps1" -d "$COURSE_DIR"
+    cd "$COURSE_DIR/linux"
 
-cd "$COURSE_DIR/linux"
-
-# Script GDB per non x86_64
-if [ ! "$(cat ../../arch_config)" = "x86_64" ]; then
-    tee "$GDB_DIR/gdb_startup" <<EOF >/dev/null
+    # Script GDB per non x86_64
+    if [ ! "$(cat ../../arch_config)" = "x86_64" ]; then
+        tee "$GDB_DIR/gdb_startup" <<EOF >/dev/null
 set architecture i386
 target remote :1234
 break _main
 continue
 EOF
-fi
+    fi
 
-# Crea gli script assemble e debug
-echo ">>> Creazione assemble.sh..."
-write_assemble
-echo ">>> Creazione debug.sh..."
-write_debug
-chmod +x assemble.sh debug.sh
+    # Crea gli script assemble e debug
+    echo ">>> Creazione assemble.sh..."
+    write_assemble
+    echo ">>> Creazione debug.sh..."
+    write_debug
+    chmod +x assemble.sh debug.sh
 
-echo ">>> Setup completato!"
+    echo ">>> Setup completato!"
+}
 
 write_assemble() {
     tee assemble.sh <<'EOF' >/dev/null
@@ -86,10 +85,8 @@ main() {
     CONFIG_FILE="../../arch_config"
     ARCH_TYPE=$(cat "$CONFIG_FILE")
     if [ "$ARCH_TYPE" = "x86_64" ]; then
-        echo ">>> Architettura x86_64 - GDB nativo"
         gdb_diretto
     else
-        echo ">>> Architettura $ARCH_TYPE - Debug con QEMU"
         gdb_qemu
     fi
 }
@@ -143,3 +140,5 @@ EOF
 main "$@"
 EOF_SCRIPT
 }
+
+main "$@"
