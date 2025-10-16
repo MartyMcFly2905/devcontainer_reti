@@ -1,0 +1,144 @@
+#!/bin/bash
+
+main() {
+    COURSE_DIR="/workspace/reti_logiche"
+    ZIP_URL="https://docenti.ing.unipi.it/~a080368/Teaching/RetiLogiche/pdf/Ambienti/linux.zip"
+    ZIP_FILE="linux.zip"
+
+    echo ">>> Creazione cartella $COURSE_DIR..."
+    mkdir -p "$COURSE_DIR"
+
+    # Scarica lo zip ufficiale se non già presente
+    if [ ! -f "$ZIP_FILE" ]; then
+        echo ">>> Scarico l'ambiente ufficiale da $ZIP_URL..."
+        wget -O "$ZIP_FILE" "$ZIP_URL"
+    else
+        echo ">>> Trovato $ZIP_FILE in locale."
+    fi
+    echo ">>> Estraggo $ZIP_FILE in $COURSE_DIR..."
+    unzip -o "$ZIP_FILE" -x "*/*.ps1" -d "$COURSE_DIR"
+
+    cd "$COURSE_DIR/linux"
+
+    # Script GDB per non x86_64
+    if [ ! "$(cat ../../arch_config)" = "x86_64" ]; then
+        tee "$GDB_DIR/gdb_startup" <<EOF >/dev/null
+set architecture i386
+target remote :1234
+break _main
+continue
+EOF
+    fi
+
+    # Crea gli script assemble e debug
+    echo ">>> Creazione assemble.sh..."
+    write_assemble
+    echo ">>> Creazione debug.sh..."
+    write_debug
+    chmod +x assemble.sh debug.sh
+
+    echo ">>> Setup completato!"
+}
+
+write_assemble() {
+    tee assemble.sh <<'EOF' >/dev/null
+#!/bin/bash
+
+if [ $# -eq 0 ]; then
+    echo "Uso: $0 <file.s>"
+    exit 1
+fi
+
+sourceFile=$1
+gcc -m32 -o "${sourceFile%.*}" '-Wa,-a' '-Wa,--defsym,LINUX=1' > "${sourceFile%.*}.lst" -g ./files/main.c "$sourceFile"
+
+if [ $? -eq 0 ]; then
+    echo "Compilato con successo: ${sourceFile%.*}"
+else
+    echo "Compilazione fallita"
+    exit 1
+fi
+EOF
+}
+
+write_debug() {
+    tee debug.sh <<'EOF_SCRIPT' >/dev/null
+#!/bin/bash
+
+main() {
+    if [ "$#" -eq 0 ]; then
+        echo "Uso: $(basename $0) <eseguibile> [input_file]"
+        exit 1
+    fi
+
+    exe=$1
+    input_file=$2
+    if [ ! -f "$exe" ]; then
+        echo "Errore: il file '$exe' non esiste"
+        exit 1
+    fi
+    if [ -n "$input_file" ] && [ ! -f "$input_file" ]; then
+        echo "Errore: il file '$input_file' non esiste"
+        exit 1
+    fi
+
+    CONFIG_FILE="../../arch_config"
+    ARCH_TYPE=$(cat "$CONFIG_FILE")
+    if [ "$ARCH_TYPE" = "x86_64" ]; then
+        gdb_diretto
+    else
+        gdb_qemu
+    fi
+}
+
+gdb_diretto() {
+    if [ -f "./files/gdb_startup" ]; then
+        if [ -n "$input_file" ] && [ -f "$input_file" ]; then
+            gdb -x "./files/gdb_startup" "$exe" < "$input_file"
+        else
+            gdb -x "./files/gdb_startup" "$exe"
+        fi
+    else
+        gdb "$exe"
+    fi
+}
+
+gdb_qemu() {
+    if [ -n "$input_file" ]; then
+        # Copia del file di input in un file FIFO
+        fifo_filename=$(mktemp -u)
+        mkfifo "$fifo_filename"
+        cat "$input_file" > "$fifo_filename" &
+        CAT_PID=$!
+
+        # Avvio di qemu e gdb
+        qemu-i386 -g 1234 "$exe" < "$fifo_filename" &
+        QEMU_PID=$!
+        sleep 0.5
+        gdb-multiarch -x "./files/gdb_startup" "$exe"
+
+        # Pulizia
+        kill $QEMU_PID $CAT_PID 2>/dev/null
+        rm -f "$fifo_filename"
+    else
+        cat <<EOF
+ISTRUZIONI:
+1. Apri un secondo terminale su VS Code
+2. Nel SECONDO terminale esegui:
+   qemu-i386 -g 1234 $exe
+
+3. In QUESTO terminale userai GDB
+4. Nel SECONDO terminale farai I/O con il programma $exe
+
+Premi Invio quando hai aperto il secondo terminale...
+EOF
+        read
+        gdb-multiarch -x "./files/gdb_startup" "$exe"
+    fi
+}
+
+main "$@"
+EOF_SCRIPT
+}
+
+main "$@"

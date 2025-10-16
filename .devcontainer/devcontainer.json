@@ -6,7 +6,8 @@
     "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
     "workspaceFolder": "/workspace",
 
-    "postCreateCommand": "chmod +x ./setup_reti.sh && ./setup_reti.sh",
+    "initializeCommand": "uname -m > ./arch_config || echo 'x86_64' > ./arch_config",
+    "postCreateCommand": "chmod +x ./setup_ambiente && ./setup_ambiente",
 
     "features": {},
     "customizations": {
