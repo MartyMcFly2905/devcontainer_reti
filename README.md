@@ -73,7 +73,7 @@ $ qemu-i386 -g 1234 <file eseguibile>
 
 **Terminale 2 (GDB):**  
 
-Si connette automaticamente al programma in esecuzione su QEMU tramite.  
+Si connette automaticamente al programma in esecuzione su QEMU.  
 Da qui puoi gestire breakpoint, registri e istruzioni step-by-step.
 
 Quando incontri per esempio una `inline` su (gbd), lancia `n` e spostati nel terminale QEMU, lì puoi scrivere ed inviare l'input.
