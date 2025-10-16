@@ -6,7 +6,7 @@
     "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
     "workspaceFolder": "/workspace",
 
-    "initializeCommand": "uname -p > ./arch_config || echo 'x86_64' > ./arch_config",
+    "initializeCommand": "uname -m > ./arch_config || echo 'x86_64' > ./arch_config",
     "postCreateCommand": "chmod +x ./setup_ambiente && ./setup_ambiente",
 
     "features": {},

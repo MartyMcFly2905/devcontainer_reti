@@ -22,6 +22,16 @@ unzip -o "$ZIP_FILE" -x "*/*.ps1" -d "$COURSE_DIR"
 
 cd "$COURSE_DIR/linux"
 
+# Script GDB per non x86_64
+if [ ! "$(cat ../../arch_config)" = "x86_64" ]; then
+    tee "$GDB_DIR/gdb_startup" <<EOF >/dev/null
+set architecture i386
+target remote :1234
+break _main
+continue
+EOF
+fi
+
 # Crea gli script assemble e debug
 echo ">>> Creazione assemble.sh..."
 write_assemble
@@ -36,7 +46,7 @@ write_assemble() {
 #!/bin/bash
 
 if [ $# -eq 0 ]; then
-    echo "Usage: $0 <file.s>"
+    echo "Uso: $0 <file.s>"
     exit 1
 fi
 
@@ -44,9 +54,9 @@ sourceFile=$1
 gcc -m32 -o "${sourceFile%.*}" '-Wa,-a' '-Wa,--defsym,LINUX=1' > "${sourceFile%.*}.lst" -g ./files/main.c "$sourceFile"
 
 if [ $? -eq 0 ]; then
-    echo "Compiled successfully: ${sourceFile%.*}"
+    echo "Compilato con successo: ${sourceFile%.*}"
 else
-    echo "Compilation failed"
+    echo "Compilazione fallita"
     exit 1
 fi
 EOF
@@ -97,15 +107,6 @@ gdb_diretto() {
 }
 
 gdb_qemu() {
-    # Script GDB
-    GDB_SCRIPT=$(mktemp)
-    tee "$GDB_SCRIPT" <<EOF >/dev/null
-set architecture i386
-target remote :1234
-break _main
-continue
-EOF
-
     if [ -n "$input_file" ]; then
         # Copia del file di input in un file FIFO
         fifo_filename=$(mktemp -u)
@@ -117,7 +118,7 @@ EOF
         qemu-i386 -g 1234 "$exe" < "$fifo_filename" &
         QEMU_PID=$!
         sleep 0.5
-        gdb-multiarch -x "$GDB_SCRIPT" "$exe"
+        gdb-multiarch -x "./files/gdb_startup" "$exe"
 
         # Pulizia
         kill $QEMU_PID $CAT_PID 2>/dev/null
@@ -135,10 +136,8 @@ ISTRUZIONI:
 Premi Invio quando hai aperto il secondo terminale...
 EOF
         read
-        gdb-multiarch -x "$GDB_SCRIPT" "$exe"
+        gdb-multiarch -x "./files/gdb_startup" "$exe"
     fi
-
-    rm -f "$GDB_SCRIPT"
 }
 
 main "$@"
