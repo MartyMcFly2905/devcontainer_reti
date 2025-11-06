@@ -16,13 +16,13 @@ main() {
         echo ">>> Trovato $ZIP_FILE in locale."
     fi
     echo ">>> Estraggo $ZIP_FILE in $COURSE_DIR..."
-    unzip -o "$ZIP_FILE" -x "*/*.ps1" -d "$COURSE_DIR"
+    unzip -o "$ZIP_FILE" -x "*/*.ps1" -d "$COURSE_DIR" >/dev/null
 
     cd "$COURSE_DIR/linux"
 
     # Script GDB per non x86_64
     if [ ! "$(cat ../../arch_config)" = "x86_64" ]; then
-        tee "$GDB_DIR/gdb_startup" <<EOF >/dev/null
+        tee $(find -iname "gdb_startup") <<EOF >/dev/null
 set architecture i386
 target remote :1234
 break _main
@@ -50,7 +50,7 @@ if [ $# -eq 0 ]; then
 fi
 
 sourceFile=$1
-gcc -m32 -o "${sourceFile%.*}" '-Wa,-a' '-Wa,--defsym,LINUX=1' > "${sourceFile%.*}.lst" -g ./files/main.c "$sourceFile"
+gcc -m32 -no-pie -z execstack -o "${sourceFile%.*}" '-Wa,-a' '-Wa,--defsym,LINUX=1' > "${sourceFile%.*}.lst" -g ./files/main.c "$sourceFile"
 
 if [ $? -eq 0 ]; then
     echo "Compilato con successo: ${sourceFile%.*}"
