@@ -16,7 +16,8 @@
                 "tomoki1207.pdf",
                 "basdp.language-gas-x86",
                 "mshr-h.veriloghdl"
-            ]
+            ],
+            "settings": {"chat.agent.enabled": false}
         }
     },
     "remoteUser": "vscode"
