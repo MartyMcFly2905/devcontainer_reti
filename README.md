@@ -60,25 +60,19 @@ Su sistemi **Apple Silicon / ARM**, sono disponibili due modalità operative:
 
 #### 1️⃣ Debug (interattivo) a due terminali
 
-Lo script stamperà sul terminale le istruzioni su come aprire e impostare correttamente i terminali.
+Per avviare questa modalità, lancia il debugger passando **solo il file eseguibile** (senza il file di input):
 
-**Terminale 1 (QEMU):**
-
-Qui puoi inserire input e visualizzare l’output del programma.
-
-```
-$ qemu-i386 -g 1234 <file eseguibile>
+```bash
+$ ./debug.sh demo/demo1
 ```
 
+Lo script si metterà in pausa e stamperà a schermo le istruzioni esatte per collegare il secondo terminale.
 
-**Terminale 2 (GDB):**  
+**Terminale 1 (GDB - Principale):** È il terminale in cui hai appena lanciato lo script. Una volta completati i passaggi nel secondo terminale, premi `INVIO` qui: si avvierà GDB collegandosi automaticamente al programma. Da qui puoi gestire breakpoint, registri e istruzioni step-by-step.
 
-Si connette automaticamente al programma in esecuzione su QEMU.  
-Da qui puoi gestire breakpoint, registri e istruzioni step-by-step.
+**Terminale 2 (QEMU - I/O):** Apri un secondo terminale su VS Code e lancia il comando che ti è stato suggerito (es. `$ qemu-i386 -g 1234 demo/demo1`). In questo terminale potrai digitare gli input e visualizzare gli output del programma.
 
-Quando incontri per esempio una `inline` su (gbd), lancia `n` e spostati nel terminale QEMU, lì puoi scrivere ed inviare l'input.
-Quando invece incontri per esempio una `outline` su (gdb), vedrai l'output sul terminale QEMU, non (gdb).
-
+> 💡 **Suggerimento:** Quando incontri una `inline` su (gdb), lancia il comando `n` e spostati nel terminale QEMU per digitare l'input. Quando incontri una `outline` su (gdb), vedrai l'output stampato sempre sul terminale QEMU, non nella finestra di (gdb).
 
 #### 2️⃣ Debug con input da file
 
